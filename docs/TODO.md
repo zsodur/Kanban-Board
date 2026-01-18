@@ -114,18 +114,18 @@
 
 ---
 
-## M3: 拖拽功能 + 持久化
+## M3: 拖拽功能 + 持久化 ✅
 
 ### 3.1 后端 Move 逻辑
-- [ ] `backend/app/services/ordering.py::move_task` - 事务移动（跨列/同列）
-- [ ] `backend/app/services/ordering.py::reorder_column` - 整列重排 position
-- [ ] `backend/app/api/v1/endpoints/tasks.py::move_task` - PATCH /tasks/{task_id}/move
+- [x] `backend/app/services/ordering.py::move_task` - 事务移动（跨列/同列）
+- [x] `backend/app/services/ordering.py::reorder_column` - 整列重排 position
+- [x] `backend/app/api/v1/endpoints/tasks.py::move_task` - PATCH /tasks/{task_id}/move
 
 ### 3.2 前端 API 客户端
-- [ ] `frontend/src/api/client.ts` - axios/fetch 封装
-- [ ] `frontend/src/api/boards.ts` - getBoards, getBoard, createBoard
-- [ ] `frontend/src/api/columns.ts` - getColumns
-- [ ] `frontend/src/api/tasks.ts` - getTasks, createTask, updateTask, deleteTask, moveTask
+- [x] `frontend/src/api/client.ts` - axios/fetch 封装
+- [x] `frontend/src/api/boards.ts` - getBoards, getBoard, createBoard
+- [x] `frontend/src/api/columns.ts` - getColumns
+- [x] `frontend/src/api/tasks.ts` - getTasks, createTask, updateTask, deleteTask, moveTask
 
 ### 3.3 前端类型定义
 - [x] `frontend/src/types/kanban.ts` - Board, Column, Task 类型
@@ -133,30 +133,30 @@
 - [x] `frontend/src/types/index.ts` - 统一导出
 
 ### 3.4 前端状态管理
-- [ ] `frontend/src/store/uiStore.ts` - Zustand UI 状态（dialog, selectedTask）
-- [ ] `frontend/src/hooks/useBoard.ts` - TanStack Query hooks（useColumns, useTasks, mutations）
+- [x] `frontend/src/store/uiStore.ts` - Zustand UI 状态（dialog, selectedTask）
+- [x] `frontend/src/hooks/useBoard.ts` - TanStack Query hooks（useColumns, useTasks, mutations）
 
 ### 3.5 前端看板组件
-- [ ] `frontend/src/components/kanban/BoardView.tsx` - 看板容器 + DndContext
-- [ ] `frontend/src/components/kanban/ColumnView.tsx` - 列组件 + SortableContext
-- [ ] `frontend/src/components/kanban/TaskCard.tsx` - 任务卡片 + useSortable
-- [ ] `frontend/src/components/kanban/DragOverlayCard.tsx` - 拖拽浮层
-- [ ] `frontend/src/components/kanban/TaskEditorDialog.tsx` - 任务编辑弹窗
+- [x] `frontend/src/components/kanban/BoardView.tsx` - 看板容器 + DndContext
+- [x] `frontend/src/components/kanban/ColumnView.tsx` - 列组件 + SortableContext
+- [x] `frontend/src/components/kanban/TaskCard.tsx` - 任务卡片 + useSortable
+- [x] `frontend/src/components/kanban/DragOverlayCard.tsx` - 拖拽浮层
+- [x] `frontend/src/components/kanban/TaskEditorDialog.tsx` - 任务编辑弹窗
 
 ### 3.6 前端布局组件
-- [ ] `frontend/src/components/layout/AppShell.tsx` - 应用外壳
-- [ ] `frontend/src/components/layout/Topbar.tsx` - 顶部导航
+- [x] `frontend/src/components/layout/AppShell.tsx` - 应用外壳
+- [x] `frontend/src/components/layout/Topbar.tsx` - 顶部导航
 
 ### 3.7 前端页面
 - [x] `frontend/src/pages/BoardPage.tsx` - 看板页面 (静态版本)
 - [x] `frontend/src/router.tsx` - React Router 配置
 
 ### 3.8 测试: M3
-- [ ] `backend/tests/test_move_task.py::test_move_task_same_column`
-- [ ] `backend/tests/test_move_task.py::test_move_task_cross_column`
-- [ ] `backend/tests/test_move_task.py::test_move_task_to_first_position`
-- [ ] `backend/tests/test_move_task.py::test_move_task_to_last_position`
-- [ ] `backend/tests/test_move_task.py::test_reorder_preserves_positions`
+- [x] `backend/tests/test_move_task.py::test_move_task_same_column`
+- [x] `backend/tests/test_move_task.py::test_move_task_cross_column`
+- [x] `backend/tests/test_move_task.py::test_move_task_to_first_position`
+- [x] `backend/tests/test_move_task.py::test_move_task_to_last_position`
+- [x] `backend/tests/test_move_task.py::test_reorder_preserves_positions`
 
 ---
 
@@ -262,7 +262,7 @@
 |------|--------|------|
 | M1: 项目骨架 | 18 | ✅ |
 | M2: 数据模型 + CRUD | 29 | ✅ |
-| M3: 拖拽功能 | 17 | ⬜ |
+| M3: 拖拽功能 | 17 | ✅ |
 | M4: WebSocket | 8 | ⬜ |
 | M5: 体验完善 | 23 | ⬜ |
 | **总计** | **95** | ⬜ |

@@ -23,6 +23,7 @@ from app.crud import (
 )
 from app.schemas import TaskCreate, TaskMove, TaskRead, TaskUpdate
 from app.services import move_task
+from app.services.realtime import broadcast_event
 
 router = APIRouter(tags=["tasks"])
 
@@ -58,6 +59,20 @@ async def create_task_endpoint(
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
     task = await create_task(db, task_in, board_id=board_id)
+
+    # 广播事件
+    await broadcast_event(
+        board_id,
+        "task_created",
+        {
+            "id": str(task.id),
+            "column_id": str(task.column_id),
+            "title": task.title,
+            "description": task.description,
+            "position": task.position,
+        },
+    )
+
     return TaskRead.model_validate(task)
 
 
@@ -87,6 +102,18 @@ async def update_task_endpoint(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = await update_task(db, task, task_in)
+
+    # 广播事件
+    await broadcast_event(
+        task.board_id,
+        "task_updated",
+        {
+            "id": str(task.id),
+            "title": task.title,
+            "description": task.description,
+        },
+    )
+
     return TaskRead.model_validate(task)
 
 
@@ -99,7 +126,14 @@ async def delete_task_endpoint(
     task = await get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    board_id = task.board_id
+    task_id_str = str(task.id)
+
     await delete_task(db, task)
+
+    # 广播事件
+    await broadcast_event(board_id, "task_deleted", {"id": task_id_str})
 
 
 # -----------------------------------------------------------------------------
@@ -115,5 +149,20 @@ async def move_task_endpoint(
     task = await get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    from_column_id = task.column_id
     task = await move_task(db, task, move_in.column_id, move_in.position)
+
+    # 广播事件
+    await broadcast_event(
+        task.board_id,
+        "task_moved",
+        {
+            "id": str(task.id),
+            "from_column_id": str(from_column_id),
+            "to_column_id": str(task.column_id),
+            "position": task.position,
+        },
+    )
+
     return TaskRead.model_validate(task)

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 react, @dnd-kit/*, hooks/useBoard, store/uiStore, 子组件
+ * [INPUT]: 依赖 react, @dnd-kit/*, hooks/useBoard, hooks/useWebSocket, store/uiStore, 子组件
  * [OUTPUT]: 对外提供 BoardView 组件
  * [POS]: kanban 组件的看板容器，拖拽核心
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -27,6 +27,7 @@ import {
   useMoveTask,
   useCreateTask,
 } from "../../hooks/useBoard";
+import { useWebSocket } from "../../hooks/useWebSocket";
 import { useUIStore } from "../../store/uiStore";
 import type { Task } from "../../types/kanban";
 
@@ -40,6 +41,9 @@ export function BoardView({ boardId }: BoardViewProps) {
   const moveTask = useMoveTask(boardId);
   const createTask = useCreateTask(boardId);
   const { openTaskDialog } = useUIStore();
+
+  // WebSocket 实时同步
+  useWebSocket(boardId);
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
