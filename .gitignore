@@ -26,3 +26,8 @@ target/
 
 # Docker
 docker-compose.override.yml
+
+.claude/
+ralph-external.log
+loop.js
+
