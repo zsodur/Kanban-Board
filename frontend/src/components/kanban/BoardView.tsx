@@ -1,29 +1,37 @@
 /**
  * [INPUT]: 依赖 react, @dnd-kit/*, hooks/useBoard, hooks/useWebSocket, store/uiStore, 子组件, types/kanban
  * [OUTPUT]: 对外提供 BoardView 组件
- * [POS]: kanban 组件的看板容器，拖拽核心
+ * [POS]: kanban 组件的看板容器，拖拽核心（官方 multiple containers 策略）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
   closestCenter,
-  defaultDropAnimationSideEffects,
   pointerWithin,
   rectIntersection,
+  getFirstCollision,
   KeyboardSensor,
   PointerSensor,
+  MeasuringStrategy,
   useSensor,
   useSensors,
+  defaultDropAnimationSideEffects,
   type DragEndEvent,
   type DragStartEvent,
   type DragOverEvent,
   type CollisionDetection,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { ColumnView } from "./ColumnView";
 import { DragOverlayCard } from "./DragOverlayCard";
 import { TaskEditorDialog } from "./TaskEditorDialog";
@@ -37,28 +45,41 @@ import { useWebSocket } from "../../hooks/useWebSocket";
 import { useUIStore } from "../../store/uiStore";
 import type { Column, Task } from "../../types/kanban";
 
+// =============================================================================
+//  类型定义
+// =============================================================================
+
 interface BoardViewProps {
   boardId: string;
 }
 
-type TasksByColumn = Record<string, Task[]>;
+/** 容器 ID -> 项目 ID 数组（官方推荐的状态结构） */
+type Items = Record<string, string[]>;
 
-function buildTasksByColumn(columns: Column[], tasks: Task[]): TasksByColumn {
-  const map: TasksByColumn = {};
+// =============================================================================
+//  工具函数
+// =============================================================================
+
+/** 从任务数组构建 Items 结构 */
+function buildItems(columns: Column[], tasks: Task[]): Items {
+  const items: Items = {};
   columns.forEach((col) => {
-    map[col.id] = [];
+    items[col.id] = [];
   });
-  tasks.forEach((task) => {
-    const list = map[task.column_id];
-    if (list) {
-      list.push({ ...task });
-    }
-  });
-  Object.values(map).forEach((taskList) => {
-    taskList.sort((a, b) => a.position - b.position);
-  });
-  return map;
+  tasks
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .forEach((task) => {
+      if (items[task.column_id]) {
+        items[task.column_id].push(task.id);
+      }
+    });
+  return items;
 }
+
+// =============================================================================
+//  组件
+// =============================================================================
 
 export function BoardView({ boardId }: BoardViewProps) {
   const { data: columns = [], isLoading: columnsLoading } = useColumns(boardId);
@@ -70,18 +91,9 @@ export function BoardView({ boardId }: BoardViewProps) {
   // WebSocket 实时同步
   useWebSocket(boardId);
 
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const lastOverId = useRef<UniqueIdentifier | null>(null);
-  const orderedTasksByColumnRef = useRef<TasksByColumn>({});
-  const activeClearTimeoutRef = useRef<number | null>(null);
-  const dropAnimationDuration = 180;
-
-  // 列 ID 集合
-  const columnIds = useMemo(() => columns.map((c) => c.id), [columns]);
-  const columnIdSet = useMemo(() => new Set(columnIds), [columnIds]);
-
-  // 根据搜索词过滤任务
+  // ---------------------------------------------------------------------------
+  //  派生数据
+  // ---------------------------------------------------------------------------
   const filteredTasks = useMemo(() => {
     if (!searchQuery.trim()) return tasks;
     const query = searchQuery.toLowerCase();
@@ -93,99 +105,73 @@ export function BoardView({ boardId }: BoardViewProps) {
     );
   }, [tasks, searchQuery]);
 
-  // 按列分组任务
-  const tasksByColumn = useMemo(
-    () => buildTasksByColumn(columns, filteredTasks),
+  const serverItems = useMemo(
+    () => buildItems(columns, filteredTasks),
     [columns, filteredTasks]
   );
 
-  // 拖拽过程中的本地顺序
-  const [orderedTasksByColumn, setOrderedTasksByColumn] =
-    useState<TasksByColumn>(tasksByColumn);
+  // ---------------------------------------------------------------------------
+  //  拖拽状态（官方 multiple containers 策略）
+  // ---------------------------------------------------------------------------
+  const [items, setItems] = useState<Items>(serverItems);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [clonedItems, setClonedItems] = useState<Items | null>(null);
+  const lastOverId = useRef<UniqueIdentifier | null>(null);
+  const recentlyMovedToNewContainer = useRef(false);
 
+  // 服务端数据变化时同步（非拖拽状态下）
   useEffect(() => {
-    if (!isDragging) {
-      setOrderedTasksByColumn(tasksByColumn);
-      orderedTasksByColumnRef.current = tasksByColumn;
+    if (!activeId) {
+      setItems(serverItems);
     }
-  }, [tasksByColumn, isDragging]);
+  }, [serverItems, activeId]);
 
+  // 跨容器移动后重置标志
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      recentlyMovedToNewContainer.current = false;
+    });
+  }, [items]);
+
+  // 当前拖拽的任务
   const activeTask = useMemo(() => {
-    if (!activeTaskId) return null;
-    return (
-      tasks.find((task) => task.id === activeTaskId) ||
-      Object.values(orderedTasksByColumn)
-        .flat()
-        .find((task) => task.id === activeTaskId) ||
-      null
-    );
-  }, [activeTaskId, tasks, orderedTasksByColumn]);
+    if (!activeId) return null;
+    return tasks.find((t) => t.id === activeId) ?? null;
+  }, [activeId, tasks]);
 
-  const dropAnimationConfig = useMemo(
-    () => ({
-      duration: dropAnimationDuration,
-      easing: "cubic-bezier(0.2, 0, 0, 1)",
-      sideEffects: defaultDropAnimationSideEffects({
-        styles: {
-          active: {
-            opacity: "0",
-          },
-        },
-      }),
-    }),
-    [dropAnimationDuration]
-  );
-
-  const scheduleActiveTaskClear = useCallback(() => {
-    if (activeClearTimeoutRef.current) {
-      window.clearTimeout(activeClearTimeoutRef.current);
-    }
-    activeClearTimeoutRef.current = window.setTimeout(() => {
-      setActiveTaskId(null);
-      activeClearTimeoutRef.current = null;
-    }, dropAnimationDuration);
-  }, [dropAnimationDuration]);
-
-  useEffect(() => {
-    return () => {
-      if (activeClearTimeoutRef.current) {
-        window.clearTimeout(activeClearTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // 传感器配置
+  // ---------------------------------------------------------------------------
+  //  传感器
+  // ---------------------------------------------------------------------------
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // -------------------------------------------------------------------------
-  //  自定义碰撞检测：优先检测任务，其次检测列容器
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  //  碰撞检测（官方策略）
+  // ---------------------------------------------------------------------------
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
+      // 先用 pointerWithin，再用 rectIntersection
       const pointerCollisions = pointerWithin(args);
-      const intersections = rectIntersection(args);
-      const collisions = pointerCollisions.length > 0 ? pointerCollisions : intersections;
-      let overId = collisions[0]?.id;
+      const intersections =
+        pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+      let overId = getFirstCollision(intersections, "id");
 
-      if (overId) {
-        if (columnIdSet.has(overId as string)) {
-          const columnTasks = orderedTasksByColumn[overId as string] || [];
-          if (columnTasks.length > 0) {
-            const closestTask = closestCenter({
+      if (overId != null) {
+        // 如果 overId 是容器，尝试找到其中最近的子项
+        if (overId in items) {
+          const containerItems = items[overId as string];
+          if (containerItems.length > 0) {
+            const closest = closestCenter({
               ...args,
-              droppableContainers: args.droppableContainers.filter((container) =>
-                columnTasks.some((task) => task.id === container.id)
+              droppableContainers: args.droppableContainers.filter(
+                (container) =>
+                  container.id !== overId && containerItems.includes(container.id as string)
               ),
-            })[0]?.id;
-            if (closestTask) {
-              overId = closestTask;
+            });
+            if (closest.length > 0) {
+              overId = closest[0].id;
             }
           }
         }
@@ -193,232 +179,176 @@ export function BoardView({ boardId }: BoardViewProps) {
         return [{ id: overId }];
       }
 
-      if (lastOverId.current) {
-        return [{ id: lastOverId.current }];
+      // 刚跨容器时保持 activeId
+      if (recentlyMovedToNewContainer.current) {
+        lastOverId.current = activeId;
       }
 
-      return closestCenter(args);
+      return lastOverId.current ? [{ id: lastOverId.current }] : [];
     },
-    [columnIdSet, orderedTasksByColumn]
+    [activeId, items]
   );
 
-  // -------------------------------------------------------------------------
-  //  查找任务所属列
-  // -------------------------------------------------------------------------
-  const findColumnId = useCallback(
-    (id: UniqueIdentifier, containers: TasksByColumn): string | null => {
-      const targetId = id as string;
-      if (columnIdSet.has(targetId)) {
-        return targetId;
-      }
-      for (const columnId of columnIds) {
-        if (containers[columnId]?.some((task) => task.id === targetId)) {
-          return columnId;
-        }
-      }
-      return null;
+  // ---------------------------------------------------------------------------
+  //  查找容器
+  // ---------------------------------------------------------------------------
+  const findContainer = useCallback(
+    (id: UniqueIdentifier): string | undefined => {
+      if (id in items) return id as string;
+      return Object.keys(items).find((key) => items[key].includes(id as string));
     },
-    [columnIdSet, columnIds]
+    [items]
   );
 
-  const getOverIndex = useCallback(
-    (overId: UniqueIdentifier, overTasks: Task[]) => {
-      if (columnIdSet.has(overId as string)) {
-        return overTasks.length;
-      }
-      const index = overTasks.findIndex((task) => task.id === overId);
-      return index >= 0 ? index : overTasks.length;
+  // ---------------------------------------------------------------------------
+  //  拖拽事件处理（官方策略）
+  // ---------------------------------------------------------------------------
+  const handleDragStart = useCallback(
+    ({ active }: DragStartEvent) => {
+      setActiveId(active.id);
+      setClonedItems(items); // 保存快照用于取消
     },
-    [columnIdSet]
+    [items]
   );
 
-  const moveTaskAcrossColumns = useCallback(
-    (
-      current: TasksByColumn,
-      activeId: string,
-      overId: string,
-      fromColumnId: string,
-      toColumnId: string
-    ) => {
-      const activeTasks = current[fromColumnId] || [];
-      const overTasksAll = current[toColumnId] || [];
-      const activeIndex = activeTasks.findIndex((task) => task.id === activeId);
-      if (activeIndex < 0) return current;
+  const handleDragOver = useCallback(
+    ({ active, over }: DragOverEvent) => {
+      const overId = over?.id;
+      if (overId == null) return;
 
-      const activeTask = activeTasks[activeIndex];
-      const overTasks = overTasksAll.filter((task) => task.id !== activeId);
-      const overIndex = getOverIndex(overId, overTasks);
+      const overContainer = findContainer(overId);
+      const activeContainer = findContainer(active.id);
+      if (!overContainer || !activeContainer) return;
 
-      const nextActiveTasks = activeTasks.filter((task) => task.id !== activeId);
-      const nextOverTasks = [...overTasks];
-      nextOverTasks.splice(overIndex, 0, {
-        ...activeTask,
-        column_id: toColumnId,
-      });
+      // 只处理跨容器移动
+      if (activeContainer !== overContainer) {
+        setItems((prev) => {
+          const activeItems = prev[activeContainer];
+          const overItems = prev[overContainer];
+          const activeIndex = activeItems.indexOf(active.id as string);
+          const overIndex = overItems.indexOf(overId as string);
 
-      return {
-        ...current,
-        [fromColumnId]: nextActiveTasks,
-        [toColumnId]: nextOverTasks,
-      };
+          let newIndex: number;
+          if (overId in prev) {
+            // 拖到空容器
+            newIndex = overItems.length;
+          } else {
+            const isBelowOverItem =
+              over &&
+              active.rect.current.translated &&
+              active.rect.current.translated.top > over.rect.top + over.rect.height;
+            const modifier = isBelowOverItem ? 1 : 0;
+            newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length;
+          }
+
+          recentlyMovedToNewContainer.current = true;
+
+          return {
+            ...prev,
+            [activeContainer]: prev[activeContainer].filter(
+              (item) => item !== active.id
+            ),
+            [overContainer]: [
+              ...prev[overContainer].slice(0, newIndex),
+              activeItems[activeIndex],
+              ...prev[overContainer].slice(newIndex),
+            ],
+          };
+        });
+      }
     },
-    [getOverIndex]
+    [findContainer]
   );
 
-  // -------------------------------------------------------------------------
-  //  拖拽事件
-  // -------------------------------------------------------------------------
-  const handleDragStart = (event: DragStartEvent) => {
-    if (activeClearTimeoutRef.current) {
-      window.clearTimeout(activeClearTimeoutRef.current);
-      activeClearTimeoutRef.current = null;
-    }
-    setActiveTaskId(event.active.id as string);
-    orderedTasksByColumnRef.current = orderedTasksByColumn;
-    setIsDragging(true);
-    lastOverId.current = event.active.id;
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    setOrderedTasksByColumn((current) => {
-      const activeId = active.id as string;
-      const overId = over.id as string;
-      const activeColumnId = findColumnId(activeId, current);
-      const overColumnId = findColumnId(overId, current);
-      if (!activeColumnId || !overColumnId) {
-        return current;
-      }
-      if (activeColumnId === overColumnId) {
-        return current;
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      const activeContainer = findContainer(active.id);
+      if (!activeContainer) {
+        setActiveId(null);
+        return;
       }
 
-      const next = moveTaskAcrossColumns(
-        current,
-        activeId,
-        overId,
-        activeColumnId,
-        overColumnId
-      );
-      orderedTasksByColumnRef.current = next;
-      return next;
-    });
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    scheduleActiveTaskClear();
-    lastOverId.current = null;
-
-    if (!over) {
-      setOrderedTasksByColumn(tasksByColumn);
-      setIsDragging(false);
-      return;
-    }
-
-    const taskId = active.id as string;
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) {
-      setOrderedTasksByColumn(tasksByColumn);
-      setIsDragging(false);
-      return;
-    }
-
-    let finalOrderedTasks = orderedTasksByColumnRef.current;
-    const activeColumnId = findColumnId(taskId, finalOrderedTasks);
-    const overColumnId = findColumnId(over.id, finalOrderedTasks);
-    if (!activeColumnId || !overColumnId) {
-      setOrderedTasksByColumn(tasksByColumn);
-      setIsDragging(false);
-      return;
-    }
-
-    if (activeColumnId === overColumnId) {
-      const columnTasks = finalOrderedTasks[activeColumnId] || [];
-      const activeIndex = columnTasks.findIndex((t) => t.id === taskId);
-      let overIndex = columnTasks.findIndex((t) => t.id === over.id);
-      if (overIndex < 0) {
-        overIndex = Math.max(columnTasks.length - 1, 0);
+      const overId = over?.id;
+      if (overId == null) {
+        setActiveId(null);
+        return;
       }
-      if (activeIndex >= 0 && overIndex >= 0 && activeIndex !== overIndex) {
-        const nextColumnTasks = arrayMove(columnTasks, activeIndex, overIndex);
-        finalOrderedTasks = {
-          ...finalOrderedTasks,
-          [activeColumnId]: nextColumnTasks,
+
+      const overContainer = findContainer(overId);
+      if (!overContainer) {
+        setActiveId(null);
+        return;
+      }
+
+      // 同容器内排序
+      const activeIndex = items[activeContainer].indexOf(active.id as string);
+      const overIndex = items[overContainer].indexOf(overId as string);
+
+      let finalItems = items;
+      if (activeIndex !== overIndex && activeContainer === overContainer) {
+        finalItems = {
+          ...items,
+          [overContainer]: arrayMove(items[overContainer], activeIndex, overIndex),
         };
-        orderedTasksByColumnRef.current = finalOrderedTasks;
+        setItems(finalItems);
       }
-    }
 
-    setOrderedTasksByColumn(finalOrderedTasks);
+      // 提交到服务器
+      const targetContainer = overContainer;
+      const newPosition = finalItems[targetContainer].indexOf(active.id as string);
+      const task = tasks.find((t) => t.id === active.id);
 
-    const targetColumnId = findColumnId(taskId, finalOrderedTasks);
-    if (!targetColumnId) {
-      setOrderedTasksByColumn(tasksByColumn);
-      setIsDragging(false);
-      return;
-    }
-
-    const columnTasks = finalOrderedTasks[targetColumnId] || [];
-    const targetPosition = columnTasks.findIndex((t) => t.id === taskId);
-    if (targetPosition < 0) {
-      setOrderedTasksByColumn(tasksByColumn);
-      setIsDragging(false);
-      return;
-    }
-
-    if (task.column_id === targetColumnId && task.position === targetPosition) {
-      setIsDragging(false);
-      return;
-    }
-
-    moveTask.mutate(
-      {
-        taskId,
-        data: { column_id: targetColumnId, position: targetPosition },
-      },
-      {
-        onSettled: () => {
-          setIsDragging(false);
-        },
+      if (task && (task.column_id !== targetContainer || task.position !== newPosition)) {
+        moveTask.mutate({
+          taskId: active.id as string,
+          data: { column_id: targetContainer, position: newPosition },
+        });
       }
-    );
-  };
 
-  const handleDragCancel = () => {
-    scheduleActiveTaskClear();
-    lastOverId.current = null;
-    setIsDragging(false);
-    setOrderedTasksByColumn(tasksByColumn);
-    orderedTasksByColumnRef.current = tasksByColumn;
-  };
+      setActiveId(null);
+      setClonedItems(null);
+    },
+    [findContainer, items, moveTask, tasks]
+  );
 
-  // -------------------------------------------------------------------------
+  const handleDragCancel = useCallback(() => {
+    if (clonedItems) {
+      setItems(clonedItems); // 恢复快照
+    }
+    setActiveId(null);
+    setClonedItems(null);
+  }, [clonedItems]);
+
+  // ---------------------------------------------------------------------------
   //  添加任务
-  // -------------------------------------------------------------------------
-  const handleAddTask = (columnId: string) => {
-    const columnTasks = tasksByColumn[columnId] || [];
-    const position = columnTasks.length;
-    createTask.mutate(
-      {
-        column_id: columnId,
-        title: "新任务",
-        position,
-      },
-      {
-        onSuccess: (newTask) => {
-          openTaskDialog(newTask.id);
-        },
-      }
-    );
-  };
+  // ---------------------------------------------------------------------------
+  const handleAddTask = useCallback(
+    (columnId: string) => {
+      const position = items[columnId]?.length ?? 0;
+      createTask.mutate(
+        { column_id: columnId, title: "新任务", position },
+        { onSuccess: (newTask) => openTaskDialog(newTask.id) }
+      );
+    },
+    [items, createTask, openTaskDialog]
+  );
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  //  根据 items 获取列的任务对象数组
+  // ---------------------------------------------------------------------------
+  const getColumnTasks = useCallback(
+    (columnId: string): Task[] => {
+      const ids = items[columnId] || [];
+      return ids
+        .map((id) => filteredTasks.find((t) => t.id === id))
+        .filter((t): t is Task => t != null);
+    },
+    [items, filteredTasks]
+  );
+
+  // ---------------------------------------------------------------------------
   //  渲染
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   if (columnsLoading || tasksLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-500">
@@ -432,6 +362,7 @@ export function BoardView({ boardId }: BoardViewProps) {
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
@@ -444,19 +375,34 @@ export function BoardView({ boardId }: BoardViewProps) {
           {columns
             .sort((a, b) => a.order_index - b.order_index)
             .map((column) => (
-              <ColumnView
+              <SortableContext
                 key={column.id}
-                column={column}
-                tasks={orderedTasksByColumn[column.id] || []}
-                onTaskClick={(task) => openTaskDialog(task.id)}
-                onAddTask={() => handleAddTask(column.id)}
-              />
+                items={items[column.id] || []}
+                strategy={verticalListSortingStrategy}
+              >
+                <ColumnView
+                  column={column}
+                  tasks={getColumnTasks(column.id)}
+                  onTaskClick={(task) => openTaskDialog(task.id)}
+                  onAddTask={() => handleAddTask(column.id)}
+                />
+              </SortableContext>
             ))}
         </div>
 
-        <DragOverlay adjustScale={false} dropAnimation={dropAnimationConfig}>
-          {activeTask && <DragOverlayCard task={activeTask} />}
-        </DragOverlay>
+        {createPortal(
+          <DragOverlay
+            adjustScale={false}
+            dropAnimation={{
+              sideEffects: defaultDropAnimationSideEffects({
+                styles: { active: { opacity: "0.5" } },
+              }),
+            }}
+          >
+            {activeTask && <DragOverlayCard task={activeTask} />}
+          </DragOverlay>,
+          document.body
+        )}
       </DndContext>
 
       <TaskEditorDialog boardId={boardId} tasks={tasks} />

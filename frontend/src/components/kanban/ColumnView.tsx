@@ -1,14 +1,10 @@
 /**
- * [INPUT]: 依赖 react, @dnd-kit/*, types/kanban, TaskCard
+ * [INPUT]: 依赖 react, @dnd-kit/core, types/kanban, TaskCard
  * [OUTPUT]: 对外提供 ColumnView 组件
- * [POS]: kanban 组件的列视图，任务顺序由上层驱动
+ * [POS]: kanban 组件的列视图，SortableContext 由父级 BoardView 提供
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { TaskCard } from "./TaskCard";
 import type { Column, Task } from "../../types/kanban";
@@ -28,8 +24,6 @@ export function ColumnView({
 }: ColumnViewProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
-  const taskIds = tasks.map((t) => t.id);
-
   return (
     <div className="flex-shrink-0 w-80">
       <div className="bg-white rounded-2xl border border-border p-4 h-full flex flex-col">
@@ -44,22 +38,20 @@ export function ColumnView({
           </div>
         </div>
 
-        {/* Tasks List */}
+        {/* Tasks List - SortableContext 由父级 BoardView 提供 */}
         <div
           ref={setNodeRef}
           className={`flex-1 overflow-y-auto space-y-3 min-h-[100px] transition-colors scrollbar-hide ${
             isOver ? "bg-gray-50/50 rounded-xl" : ""
           }`}
         >
-          <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-            {tasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onClick={() => onTaskClick?.(task)}
-              />
-            ))}
-          </SortableContext>
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClick={() => onTaskClick?.(task)}
+            />
+          ))}
         </div>
 
         {/* Add Task Button */}
