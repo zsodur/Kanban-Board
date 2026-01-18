@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 react, types/kanban
+ * [INPUT]: 依赖 react, @dnd-kit/sortable, types/kanban
  * [OUTPUT]: 对外提供 TaskCard 组件
  * [POS]: kanban 组件的任务卡片
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -27,7 +27,10 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    // 拖拽时完全隐藏原卡片，由 DragOverlay 显示
+    opacity: isDragging ? 0 : 1,
+    // 保持占位空间
+    visibility: isDragging ? ("hidden" as const) : ("visible" as const),
   };
 
   return (
