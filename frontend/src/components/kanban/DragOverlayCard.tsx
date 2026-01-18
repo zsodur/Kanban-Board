@@ -13,12 +13,20 @@ interface DragOverlayCardProps {
 
 export function DragOverlayCard({ task }: DragOverlayCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-lg border-2 border-blue-400 p-3 w-72 rotate-3">
-      <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
-        {task.title}
-      </h4>
+    <div className="bg-white rounded-xl p-4 shadow-xl border border-primary/20 w-80 cursor-grabbing">
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
+          #{task.id.slice(0, 8)}
+        </span>
+        <div>
+          <i className="fas fa-ellipsis text-gray-400"></i>
+        </div>
+      </div>
+
+      <h3 className="font-medium text-text mb-2 line-clamp-2">{task.title}</h3>
+
       {task.description && (
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+        <p className="text-sm text-gray-500 mb-3 line-clamp-2">
           {task.description}
         </p>
       )}

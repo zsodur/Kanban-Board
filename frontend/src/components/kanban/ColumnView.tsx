@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 react, @dnd-kit/*, types/kanban, TaskCard
  * [OUTPUT]: 对外提供 ColumnView 组件
- * [POS]: kanban 组件的列视图
+ * [POS]: kanban 组件的列视图，任务顺序由上层驱动
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -28,8 +28,7 @@ export function ColumnView({
 }: ColumnViewProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
-  const sortedTasks = [...tasks].sort((a, b) => a.position - b.position);
-  const taskIds = sortedTasks.map((t) => t.id);
+  const taskIds = tasks.map((t) => t.id);
 
   return (
     <div className="flex-shrink-0 w-80">
@@ -43,9 +42,6 @@ export function ColumnView({
               {tasks.length}
             </span>
           </div>
-          <button className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer">
-            <i className="fas fa-plus text-gray-400 text-sm"></i>
-          </button>
         </div>
 
         {/* Tasks List */}
@@ -56,7 +52,7 @@ export function ColumnView({
           }`}
         >
           <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-            {sortedTasks.map((task) => (
+            {tasks.map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}

@@ -12,17 +12,24 @@ interface UIState {
   editingTaskId: string | null;
   isTaskDialogOpen: boolean;
 
+  // 搜索
+  searchQuery: string;
+
   // 操作
   openTaskDialog: (taskId: string | null) => void;
   closeTaskDialog: () => void;
+  setSearchQuery: (query: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   editingTaskId: null,
   isTaskDialogOpen: false,
+  searchQuery: "",
 
   openTaskDialog: (taskId) =>
     set({ editingTaskId: taskId, isTaskDialogOpen: true }),
 
   closeTaskDialog: () => set({ editingTaskId: null, isTaskDialogOpen: false }),
+
+  setSearchQuery: (query) => set({ searchQuery: query }),
 }));

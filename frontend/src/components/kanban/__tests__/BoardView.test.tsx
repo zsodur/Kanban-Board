@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 @testing-library/react, vitest, @tanstack/react-query
+ * [INPUT]: 依赖 @testing-library/react, vitest, @tanstack/react-query, @dnd-kit/*
  * [OUTPUT]: 对外提供 BoardView 组件测试
  * [POS]: kanban/__tests__ 模块的 BoardView 测试
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -33,6 +33,8 @@ vi.mock("../../../hooks/useBoard", () => ({
   })),
   useMoveTask: vi.fn(() => ({ mutate: vi.fn() })),
   useCreateTask: vi.fn(() => ({ mutate: vi.fn() })),
+  useUpdateTask: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useDeleteTask: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   boardKeys: {
     all: ["boards"],
     lists: () => ["boards", "list"],
@@ -54,6 +56,8 @@ vi.mock("../../../store/uiStore", () => ({
     closeTaskDialog: vi.fn(),
     isTaskDialogOpen: false,
     editingTaskId: null,
+    searchQuery: "",
+    setSearchQuery: vi.fn(),
   })),
 }));
 
@@ -64,6 +68,8 @@ vi.mock("@dnd-kit/core", () => ({
   closestCorners: vi.fn(),
   KeyboardSensor: vi.fn(),
   PointerSensor: vi.fn(),
+  defaultDropAnimationSideEffects: vi.fn(() => () => {}),
+  useDroppable: vi.fn(() => ({ setNodeRef: vi.fn(), isOver: false })),
   useSensor: vi.fn(),
   useSensors: vi.fn(() => []),
 }));
@@ -79,6 +85,7 @@ vi.mock("@dnd-kit/sortable", () => ({
     transition: null,
     isDragging: false,
   }),
+  arrayMove: vi.fn((items: unknown[]) => items),
   sortableKeyboardCoordinates: vi.fn(),
 }));
 

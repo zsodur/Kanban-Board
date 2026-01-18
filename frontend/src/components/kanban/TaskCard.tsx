@@ -58,16 +58,6 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           {task.description}
         </p>
       )}
-
-      {/* Placeholder for tags/avatar to match visual style without adding features */}
-      <div className="flex items-center justify-between mt-2">
-        <div className="flex items-center gap-2">
-          {/* <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">Task</span> */}
-        </div>
-        <div className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-             <i className="fas fa-user text-xs text-gray-400"></i>
-        </div>
-      </div>
     </div>
   );
 }

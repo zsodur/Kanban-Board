@@ -62,8 +62,8 @@ async def seed_default_board(db: AsyncSession) -> None:
     await create_task(
         db,
         TaskCreate(
-            title="双击编辑任务",
-            description="点击任务卡片可以编辑详情",
+            title="点击编辑任务",
+            description="单击任务卡片即可编辑详情",
             column_id=col_doing.id,
             position=0,
         ),

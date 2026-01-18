@@ -1,18 +1,18 @@
 /**
- * [INPUT]: 依赖 react, @dnd-kit/*, hooks/useBoard, hooks/useWebSocket, store/uiStore, 子组件
+ * [INPUT]: 依赖 react, @dnd-kit/*, hooks/useBoard, hooks/useWebSocket, store/uiStore, 子组件, types/kanban
  * [OUTPUT]: 对外提供 BoardView 组件
  * [POS]: kanban 组件的看板容器，拖拽核心
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
   closestCenter,
+  defaultDropAnimationSideEffects,
   pointerWithin,
   rectIntersection,
-  getFirstCollision,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -23,7 +23,7 @@ import {
   type CollisionDetection,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { ColumnView } from "./ColumnView";
 import { DragOverlayCard } from "./DragOverlayCard";
 import { TaskEditorDialog } from "./TaskEditorDialog";
@@ -35,10 +35,29 @@ import {
 } from "../../hooks/useBoard";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useUIStore } from "../../store/uiStore";
-import type { Task } from "../../types/kanban";
+import type { Column, Task } from "../../types/kanban";
 
 interface BoardViewProps {
   boardId: string;
+}
+
+type TasksByColumn = Record<string, Task[]>;
+
+function buildTasksByColumn(columns: Column[], tasks: Task[]): TasksByColumn {
+  const map: TasksByColumn = {};
+  columns.forEach((col) => {
+    map[col.id] = [];
+  });
+  tasks.forEach((task) => {
+    const list = map[task.column_id];
+    if (list) {
+      list.push({ ...task });
+    }
+  });
+  Object.values(map).forEach((taskList) => {
+    taskList.sort((a, b) => a.position - b.position);
+  });
+  return map;
 }
 
 export function BoardView({ boardId }: BoardViewProps) {
@@ -46,31 +65,94 @@ export function BoardView({ boardId }: BoardViewProps) {
   const { data: tasks = [], isLoading: tasksLoading } = useTasks(boardId);
   const moveTask = useMoveTask(boardId);
   const createTask = useCreateTask(boardId);
-  const { openTaskDialog } = useUIStore();
+  const { openTaskDialog, searchQuery } = useUIStore();
 
   // WebSocket 实时同步
   useWebSocket(boardId);
 
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const lastOverId = useRef<UniqueIdentifier | null>(null);
+  const orderedTasksByColumnRef = useRef<TasksByColumn>({});
+  const activeClearTimeoutRef = useRef<number | null>(null);
+  const dropAnimationDuration = 180;
 
   // 列 ID 集合
   const columnIds = useMemo(() => columns.map((c) => c.id), [columns]);
+  const columnIdSet = useMemo(() => new Set(columnIds), [columnIds]);
+
+  // 根据搜索词过滤任务
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery.trim()) return tasks;
+    const query = searchQuery.toLowerCase();
+    return tasks.filter(
+      (task) =>
+        task.title.toLowerCase().includes(query) ||
+        task.description?.toLowerCase().includes(query) ||
+        task.id.toLowerCase().includes(query)
+    );
+  }, [tasks, searchQuery]);
 
   // 按列分组任务
-  const tasksByColumn = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    columns.forEach((col) => map.set(col.id, []));
-    tasks.forEach((task) => {
-      const list = map.get(task.column_id);
-      if (list) list.push(task);
-    });
-    // 按 position 排序
-    map.forEach((taskList) => {
-      taskList.sort((a, b) => a.position - b.position);
-    });
-    return map;
-  }, [columns, tasks]);
+  const tasksByColumn = useMemo(
+    () => buildTasksByColumn(columns, filteredTasks),
+    [columns, filteredTasks]
+  );
+
+  // 拖拽过程中的本地顺序
+  const [orderedTasksByColumn, setOrderedTasksByColumn] =
+    useState<TasksByColumn>(tasksByColumn);
+
+  useEffect(() => {
+    if (!isDragging) {
+      setOrderedTasksByColumn(tasksByColumn);
+      orderedTasksByColumnRef.current = tasksByColumn;
+    }
+  }, [tasksByColumn, isDragging]);
+
+  const activeTask = useMemo(() => {
+    if (!activeTaskId) return null;
+    return (
+      tasks.find((task) => task.id === activeTaskId) ||
+      Object.values(orderedTasksByColumn)
+        .flat()
+        .find((task) => task.id === activeTaskId) ||
+      null
+    );
+  }, [activeTaskId, tasks, orderedTasksByColumn]);
+
+  const dropAnimationConfig = useMemo(
+    () => ({
+      duration: dropAnimationDuration,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+      sideEffects: defaultDropAnimationSideEffects({
+        styles: {
+          active: {
+            opacity: "0",
+          },
+        },
+      }),
+    }),
+    [dropAnimationDuration]
+  );
+
+  const scheduleActiveTaskClear = useCallback(() => {
+    if (activeClearTimeoutRef.current) {
+      window.clearTimeout(activeClearTimeoutRef.current);
+    }
+    activeClearTimeoutRef.current = window.setTimeout(() => {
+      setActiveTaskId(null);
+      activeClearTimeoutRef.current = null;
+    }, dropAnimationDuration);
+  }, [dropAnimationDuration]);
+
+  useEffect(() => {
+    return () => {
+      if (activeClearTimeoutRef.current) {
+        window.clearTimeout(activeClearTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 传感器配置
   const sensors = useSensors(
@@ -87,136 +169,212 @@ export function BoardView({ boardId }: BoardViewProps) {
   // -------------------------------------------------------------------------
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
-      // 首先检查是否与任务碰撞
       const pointerCollisions = pointerWithin(args);
-      const intersectionCollisions = rectIntersection(args);
+      const intersections = rectIntersection(args);
+      const collisions = pointerCollisions.length > 0 ? pointerCollisions : intersections;
+      let overId = collisions[0]?.id;
 
-      // 合并碰撞结果
-      const collisions = pointerCollisions.length > 0 ? pointerCollisions : intersectionCollisions;
-
-      // 过滤出任务和列的碰撞
-      const taskCollisions = collisions.filter(
-        (collision) => !columnIds.includes(collision.id as string)
-      );
-      const columnCollisions = collisions.filter((collision) =>
-        columnIds.includes(collision.id as string)
-      );
-
-      // 优先返回任务碰撞，否则返回列碰撞
-      if (taskCollisions.length > 0) {
-        return taskCollisions;
+      if (overId) {
+        if (columnIdSet.has(overId as string)) {
+          const columnTasks = orderedTasksByColumn[overId as string] || [];
+          if (columnTasks.length > 0) {
+            const closestTask = closestCenter({
+              ...args,
+              droppableContainers: args.droppableContainers.filter((container) =>
+                columnTasks.some((task) => task.id === container.id)
+              ),
+            })[0]?.id;
+            if (closestTask) {
+              overId = closestTask;
+            }
+          }
+        }
+        lastOverId.current = overId;
+        return [{ id: overId }];
       }
-      if (columnCollisions.length > 0) {
-        return columnCollisions;
+
+      if (lastOverId.current) {
+        return [{ id: lastOverId.current }];
       }
 
-      // 使用 closestCenter 作为后备
       return closestCenter(args);
     },
-    [columnIds]
+    [columnIdSet, orderedTasksByColumn]
   );
 
   // -------------------------------------------------------------------------
   //  查找任务所属列
   // -------------------------------------------------------------------------
-  const findColumnId = (id: UniqueIdentifier): string | null => {
-    // 是否是列 ID
-    if (columnIds.includes(id as string)) {
-      return id as string;
-    }
-    // 查找任务所属列
-    const task = tasks.find((t) => t.id === id);
-    return task?.column_id || null;
-  };
+  const findColumnId = useCallback(
+    (id: UniqueIdentifier, containers: TasksByColumn): string | null => {
+      const targetId = id as string;
+      if (columnIdSet.has(targetId)) {
+        return targetId;
+      }
+      for (const columnId of columnIds) {
+        if (containers[columnId]?.some((task) => task.id === targetId)) {
+          return columnId;
+        }
+      }
+      return null;
+    },
+    [columnIdSet, columnIds]
+  );
+
+  const getOverIndex = useCallback(
+    (overId: UniqueIdentifier, overTasks: Task[]) => {
+      if (columnIdSet.has(overId as string)) {
+        return overTasks.length;
+      }
+      const index = overTasks.findIndex((task) => task.id === overId);
+      return index >= 0 ? index : overTasks.length;
+    },
+    [columnIdSet]
+  );
+
+  const moveTaskAcrossColumns = useCallback(
+    (
+      current: TasksByColumn,
+      activeId: string,
+      overId: string,
+      fromColumnId: string,
+      toColumnId: string
+    ) => {
+      const activeTasks = current[fromColumnId] || [];
+      const overTasksAll = current[toColumnId] || [];
+      const activeIndex = activeTasks.findIndex((task) => task.id === activeId);
+      if (activeIndex < 0) return current;
+
+      const activeTask = activeTasks[activeIndex];
+      const overTasks = overTasksAll.filter((task) => task.id !== activeId);
+      const overIndex = getOverIndex(overId, overTasks);
+
+      const nextActiveTasks = activeTasks.filter((task) => task.id !== activeId);
+      const nextOverTasks = [...overTasks];
+      nextOverTasks.splice(overIndex, 0, {
+        ...activeTask,
+        column_id: toColumnId,
+      });
+
+      return {
+        ...current,
+        [fromColumnId]: nextActiveTasks,
+        [toColumnId]: nextOverTasks,
+      };
+    },
+    [getOverIndex]
+  );
 
   // -------------------------------------------------------------------------
   //  拖拽事件
   // -------------------------------------------------------------------------
   const handleDragStart = (event: DragStartEvent) => {
-    const task = tasks.find((t) => t.id === event.active.id);
-    if (task) {
-      setActiveTask(task);
-      setActiveColumnId(task.column_id);
+    if (activeClearTimeoutRef.current) {
+      window.clearTimeout(activeClearTimeoutRef.current);
+      activeClearTimeoutRef.current = null;
     }
+    setActiveTaskId(event.active.id as string);
+    orderedTasksByColumnRef.current = orderedTasksByColumn;
+    setIsDragging(true);
+    lastOverId.current = event.active.id;
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
+    const { active, over } = event;
     if (!over) return;
 
-    const overColumnId = findColumnId(over.id);
-    if (overColumnId && overColumnId !== activeColumnId) {
-      setActiveColumnId(overColumnId);
-    }
+    setOrderedTasksByColumn((current) => {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      const activeColumnId = findColumnId(activeId, current);
+      const overColumnId = findColumnId(overId, current);
+      if (!activeColumnId || !overColumnId) {
+        return current;
+      }
+      if (activeColumnId === overColumnId) {
+        return current;
+      }
+
+      const next = moveTaskAcrossColumns(
+        current,
+        activeId,
+        overId,
+        activeColumnId,
+        overColumnId
+      );
+      orderedTasksByColumnRef.current = next;
+      return next;
+    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    // 先清除 activeColumnId
-    setActiveColumnId(null);
+    scheduleActiveTaskClear();
+    lastOverId.current = null;
 
     if (!over) {
-      setActiveTask(null);
+      setOrderedTasksByColumn(tasksByColumn);
+      setIsDragging(false);
       return;
     }
 
     const taskId = active.id as string;
     const task = tasks.find((t) => t.id === taskId);
     if (!task) {
-      setActiveTask(null);
+      setOrderedTasksByColumn(tasksByColumn);
+      setIsDragging(false);
       return;
     }
 
-    // 判断目标列和位置
-    let targetColumnId: string;
-    let targetPosition: number;
+    let finalOrderedTasks = orderedTasksByColumnRef.current;
+    const activeColumnId = findColumnId(taskId, finalOrderedTasks);
+    const overColumnId = findColumnId(over.id, finalOrderedTasks);
+    if (!activeColumnId || !overColumnId) {
+      setOrderedTasksByColumn(tasksByColumn);
+      setIsDragging(false);
+      return;
+    }
 
-    const isOverColumn = columnIds.includes(over.id as string);
-
-    if (isOverColumn) {
-      // 放到列容器上，追加到末尾
-      targetColumnId = over.id as string;
-      const columnTasks = tasksByColumn.get(targetColumnId) || [];
-      // 如果是同列，不算自己
-      if (task.column_id === targetColumnId) {
-        targetPosition = columnTasks.length - 1;
-      } else {
-        targetPosition = columnTasks.length;
+    if (activeColumnId === overColumnId) {
+      const columnTasks = finalOrderedTasks[activeColumnId] || [];
+      const activeIndex = columnTasks.findIndex((t) => t.id === taskId);
+      let overIndex = columnTasks.findIndex((t) => t.id === over.id);
+      if (overIndex < 0) {
+        overIndex = Math.max(columnTasks.length - 1, 0);
       }
-    } else {
-      // 放到任务上，插入到该任务位置
-      const targetTask = tasks.find((t) => t.id === over.id);
-      if (!targetTask) {
-        setActiveTask(null);
-        return;
-      }
-
-      targetColumnId = targetTask.column_id;
-      const columnTasks = tasksByColumn.get(targetColumnId) || [];
-      const targetIndex = columnTasks.findIndex((t) => t.id === over.id);
-
-      if (task.column_id === targetColumnId) {
-        // 同列移动
-        const currentIndex = columnTasks.findIndex((t) => t.id === taskId);
-        if (currentIndex < targetIndex) {
-          targetPosition = targetIndex;
-        } else {
-          targetPosition = targetIndex;
-        }
-      } else {
-        // 跨列移动
-        targetPosition = targetIndex;
+      if (activeIndex >= 0 && overIndex >= 0 && activeIndex !== overIndex) {
+        const nextColumnTasks = arrayMove(columnTasks, activeIndex, overIndex);
+        finalOrderedTasks = {
+          ...finalOrderedTasks,
+          [activeColumnId]: nextColumnTasks,
+        };
+        orderedTasksByColumnRef.current = finalOrderedTasks;
       }
     }
 
-    // 如果位置没变，跳过
+    setOrderedTasksByColumn(finalOrderedTasks);
+
+    const targetColumnId = findColumnId(taskId, finalOrderedTasks);
+    if (!targetColumnId) {
+      setOrderedTasksByColumn(tasksByColumn);
+      setIsDragging(false);
+      return;
+    }
+
+    const columnTasks = finalOrderedTasks[targetColumnId] || [];
+    const targetPosition = columnTasks.findIndex((t) => t.id === taskId);
+    if (targetPosition < 0) {
+      setOrderedTasksByColumn(tasksByColumn);
+      setIsDragging(false);
+      return;
+    }
+
     if (task.column_id === targetColumnId && task.position === targetPosition) {
-      setActiveTask(null);
+      setIsDragging(false);
       return;
     }
 
-    // 先触发 mutation（会执行乐观更新），然后清除 activeTask
     moveTask.mutate(
       {
         taskId,
@@ -224,24 +382,38 @@ export function BoardView({ boardId }: BoardViewProps) {
       },
       {
         onSettled: () => {
-          // mutation 完成后再清除，确保乐观更新已生效
-          setActiveTask(null);
+          setIsDragging(false);
         },
       }
     );
+  };
+
+  const handleDragCancel = () => {
+    scheduleActiveTaskClear();
+    lastOverId.current = null;
+    setIsDragging(false);
+    setOrderedTasksByColumn(tasksByColumn);
+    orderedTasksByColumnRef.current = tasksByColumn;
   };
 
   // -------------------------------------------------------------------------
   //  添加任务
   // -------------------------------------------------------------------------
   const handleAddTask = (columnId: string) => {
-    const columnTasks = tasksByColumn.get(columnId) || [];
+    const columnTasks = tasksByColumn[columnId] || [];
     const position = columnTasks.length;
-    createTask.mutate({
-      column_id: columnId,
-      title: "新任务",
-      position,
-    });
+    createTask.mutate(
+      {
+        column_id: columnId,
+        title: "新任务",
+        position,
+      },
+      {
+        onSuccess: (newTask) => {
+          openTaskDialog(newTask.id);
+        },
+      }
+    );
   };
 
   // -------------------------------------------------------------------------
@@ -263,6 +435,7 @@ export function BoardView({ boardId }: BoardViewProps) {
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         <div
           className="flex gap-4 overflow-x-auto scrollbar-hide pb-4"
@@ -274,14 +447,14 @@ export function BoardView({ boardId }: BoardViewProps) {
               <ColumnView
                 key={column.id}
                 column={column}
-                tasks={tasksByColumn.get(column.id) || []}
+                tasks={orderedTasksByColumn[column.id] || []}
                 onTaskClick={(task) => openTaskDialog(task.id)}
                 onAddTask={() => handleAddTask(column.id)}
               />
             ))}
         </div>
 
-        <DragOverlay>
+        <DragOverlay adjustScale={false} dropAnimation={dropAnimationConfig}>
           {activeTask && <DragOverlayCard task={activeTask} />}
         </DragOverlay>
       </DndContext>
