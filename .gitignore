@@ -8,6 +8,11 @@ dist/
 build/
 .env
 
+# TypeScript build artifacts
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
 # Python
 __pycache__/
 *.py[cod]
