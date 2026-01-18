@@ -191,21 +191,21 @@
 ## M5: 体验完善 + 测试覆盖
 
 ### 5.1 UI 组件（shadcn/ui）
-- [ ] `frontend/src/components/ui/button.tsx`
-- [ ] `frontend/src/components/ui/card.tsx`
-- [ ] `frontend/src/components/ui/dialog.tsx`
-- [ ] `frontend/src/components/ui/input.tsx`
-- [ ] `frontend/src/components/ui/textarea.tsx`
+- [x] `frontend/src/components/ui/button.tsx`
+- [x] `frontend/src/components/ui/card.tsx`
+- [x] `frontend/src/components/ui/dialog.tsx`
+- [x] `frontend/src/components/ui/input.tsx`
+- [x] `frontend/src/components/ui/textarea.tsx`
 - [x] `frontend/src/components/ui/toast.tsx`
-- [ ] `frontend/src/components/ui/dropdown-menu.tsx`
-- [ ] `frontend/src/components/ui/badge.tsx`
-- [ ] `frontend/components.json` - shadcn/ui 配置
+- [x] `frontend/src/components/ui/dropdown-menu.tsx`
+- [x] `frontend/src/components/ui/badge.tsx`
+- [x] `frontend/components.json` - shadcn/ui 配置
 
 ### 5.2 用户体验
-- [ ] 空状态引导组件（无任务时显示引导）
-- [ ] 加载骨架屏（Skeleton）
-- [ ] `frontend/src/hooks/useToast.ts` - Toast 通知 hook
-- [ ] 错误边界处理
+- [x] 空状态引导组件（无任务时显示引导）
+- [x] 加载骨架屏（Skeleton）
+- [x] `frontend/src/hooks/useToast.ts` - Toast 通知 hook
+- [x] 错误边界处理
 
 ### 5.3 样式与工具
 - [x] `frontend/src/styles/globals.css` - 全局样式 + Tailwind 引入
@@ -214,10 +214,10 @@
 - [x] `frontend/src/lib/validations.ts` - 前端校验规则
 
 ### 5.4 前端测试
-- [ ] `frontend/vitest.config.ts` - Vitest 配置
-- [ ] `frontend/src/components/kanban/__tests__/TaskCard.test.tsx`
-- [ ] `frontend/src/components/kanban/__tests__/BoardView.test.tsx`
-- [ ] `frontend/src/hooks/__tests__/useBoard.test.ts`
+- [x] `frontend/vitest.config.ts` - Vitest 配置
+- [x] `frontend/src/components/kanban/__tests__/TaskCard.test.tsx`
+- [x] `frontend/src/components/kanban/__tests__/BoardView.test.tsx`
+- [x] `frontend/src/hooks/__tests__/useBoard.test.ts`
 
 ### 5.5 可选: 鉴权
 - [ ] `backend/app/core/security.py` - JWT 签发/验证
@@ -230,7 +230,7 @@
 - [ ] `backend/tests/test_auth.py` - 鉴权测试
 
 ### 5.6 代码质量
-- [ ] `frontend/eslint.config.js` - ESLint 配置
+- [x] `frontend/eslint.config.js` - ESLint 配置
 - [x] `frontend/.prettierrc` - Prettier 配置
 - [x] `backend/pytest.ini` - pytest 配置
 
