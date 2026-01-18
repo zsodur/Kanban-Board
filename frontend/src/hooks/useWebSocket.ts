@@ -17,10 +17,22 @@ interface WebSocketEvent {
   payload: Record<string, unknown>;
 }
 
-export function useWebSocket(boardId: string | null) {
+interface UseWebSocketOptions {
+  /** 是否有进行中的移动操作，用于避免干扰乐观更新 */
+  isMovePending?: boolean;
+}
+
+export function useWebSocket(
+  boardId: string | null,
+  options: UseWebSocketOptions = {}
+) {
+  const { isMovePending = false } = options;
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
   const reconnectTimeoutRef = useRef<number | null>(null);
+  // 用 ref 追踪最新的 isMovePending，避免 callback 依赖变化
+  const isMovePendingRef = useRef(isMovePending);
+  isMovePendingRef.current = isMovePending;
 
   const connect = useCallback(() => {
     if (!boardId) return;
@@ -110,8 +122,11 @@ export function useWebSocket(boardId: string | null) {
         }
 
         case "task_moved": {
-          // 触发完整刷新获取所有任务的正确 position
-          // BoardView 的 isPending 检查会防止干扰进行中的拖拽
+          // 自己正在移动时忽略，避免干扰乐观更新
+          if (isMovePendingRef.current) {
+            break;
+          }
+          // 其他客户端的移动，触发完整刷新
           queryClient.invalidateQueries({ queryKey: tasksKey });
           break;
         }

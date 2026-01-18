@@ -87,8 +87,8 @@ export function BoardView({ boardId }: BoardViewProps) {
   const createTask = useCreateTask(boardId);
   const { openTaskDialog, searchQuery } = useUIStore();
 
-  // WebSocket 实时同步
-  useWebSocket(boardId);
+  // WebSocket 实时同步（传递 isMovePending 避免干扰乐观更新）
+  useWebSocket(boardId, { isMovePending: moveTask.isPending });
 
   // ---------------------------------------------------------------------------
   //  派生数据
