@@ -179,9 +179,12 @@
 - [x] 修改 `useBoard.ts` - 收到事件后更新 TanStack Query cache
 
 ### 4.4 测试: M4
-- [ ] `backend/tests/test_websocket.py::test_connect_to_board`
-- [ ] `backend/tests/test_websocket.py::test_receive_task_created_event`
-- [ ] `backend/tests/test_websocket.py::test_receive_task_moved_event`
+- [x] `backend/tests/test_websocket.py::test_connect_to_board`
+- [x] `backend/tests/test_websocket.py::test_manager_broadcast`
+- [x] `backend/tests/test_websocket.py::test_manager_connect_disconnect`
+- [x] `backend/tests/test_websocket.py::test_broadcast_event_helper`
+- [x] `backend/tests/test_websocket.py::test_broadcast_no_connections`
+- [x] `backend/tests/test_websocket.py::test_broadcast_removes_dead_connections`
 
 ---
 
