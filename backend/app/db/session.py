@@ -12,14 +12,26 @@ from app.core.config import settings
 
 # -------------------------------------------------------------------------
 #  异步引擎 - 连接池配置
+#  根据数据库 URL 类型决定配置参数
 # -------------------------------------------------------------------------
-async_engine = create_async_engine(
-    settings.async_database_url,
-    echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
-)
+_is_sqlite = settings.async_database_url.startswith("sqlite")
+
+_engine_kwargs: dict = {
+    "echo": settings.debug,
+}
+
+if not _is_sqlite:
+    _engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_size": 5,
+        "max_overflow": 10,
+    })
+else:
+    _engine_kwargs.update({
+        "connect_args": {"check_same_thread": False},
+    })
+
+async_engine = create_async_engine(settings.async_database_url, **_engine_kwargs)
 
 # -------------------------------------------------------------------------
 #  异步会话工厂

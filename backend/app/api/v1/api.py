@@ -6,7 +6,7 @@
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health
+from app.api.v1.endpoints import boards, columns, health, tasks
 
 api_router = APIRouter()
 
@@ -14,3 +14,6 @@ api_router = APIRouter()
 #  注册路由
 # -------------------------------------------------------------------------
 api_router.include_router(health.router)
+api_router.include_router(boards.router)
+api_router.include_router(columns.router)
+api_router.include_router(tasks.router)

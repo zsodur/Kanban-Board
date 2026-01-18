@@ -71,3 +71,19 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+async def demo_user(db_session: AsyncSession):
+    """创建 demo 用户供测试使用"""
+    from app.models import User
+
+    user = User(
+        email="demo@example.com",
+        display_name="Demo User",
+        hashed_password="$2b$12$test_hash",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
