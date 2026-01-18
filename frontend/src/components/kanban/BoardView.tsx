@@ -153,14 +153,20 @@ export function BoardView({ boardId }: BoardViewProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    setActiveTask(null);
+    // 先清除 activeColumnId
     setActiveColumnId(null);
 
-    if (!over) return;
+    if (!over) {
+      setActiveTask(null);
+      return;
+    }
 
     const taskId = active.id as string;
     const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
+    if (!task) {
+      setActiveTask(null);
+      return;
+    }
 
     // 判断目标列和位置
     let targetColumnId: string;
@@ -181,7 +187,10 @@ export function BoardView({ boardId }: BoardViewProps) {
     } else {
       // 放到任务上，插入到该任务位置
       const targetTask = tasks.find((t) => t.id === over.id);
-      if (!targetTask) return;
+      if (!targetTask) {
+        setActiveTask(null);
+        return;
+      }
 
       targetColumnId = targetTask.column_id;
       const columnTasks = tasksByColumn.get(targetColumnId) || [];
@@ -203,13 +212,23 @@ export function BoardView({ boardId }: BoardViewProps) {
 
     // 如果位置没变，跳过
     if (task.column_id === targetColumnId && task.position === targetPosition) {
+      setActiveTask(null);
       return;
     }
 
-    moveTask.mutate({
-      taskId,
-      data: { column_id: targetColumnId, position: targetPosition },
-    });
+    // 先触发 mutation（会执行乐观更新），然后清除 activeTask
+    moveTask.mutate(
+      {
+        taskId,
+        data: { column_id: targetColumnId, position: targetPosition },
+      },
+      {
+        onSettled: () => {
+          // mutation 完成后再清除，确保乐观更新已生效
+          setActiveTask(null);
+        },
+      }
+    );
   };
 
   // -------------------------------------------------------------------------
@@ -245,7 +264,10 @@ export function BoardView({ boardId }: BoardViewProps) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 p-4 overflow-x-auto h-full">
+        <div
+          className="flex gap-4 overflow-x-auto scrollbar-hide pb-4"
+          style={{ minHeight: "calc(100vh - 140px)" }}
+        >
           {columns
             .sort((a, b) => a.order_index - b.order_index)
             .map((column) => (

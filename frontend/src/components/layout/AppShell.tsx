@@ -14,9 +14,11 @@ interface AppShellProps {
 
 export function AppShell({ children, title }: AppShellProps) {
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen bg-surface font-sans">
       <Topbar title={title} />
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <main className="pt-28 px-4 pb-8 h-screen flex flex-col overflow-hidden">
+        {children}
+      </main>
     </div>
   );
 }

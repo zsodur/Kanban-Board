@@ -40,16 +40,34 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      className="bg-gray-50 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer group border border-transparent hover:border-gray-200"
     >
-      <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
-        {task.title}
-      </h4>
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-lg">
+          #{task.id.slice(0, 8)}
+        </span>
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <i className="fas fa-ellipsis text-gray-400"></i>
+        </div>
+      </div>
+
+      <h3 className="font-medium text-text mb-2 line-clamp-2">{task.title}</h3>
+
       {task.description && (
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+        <p className="text-sm text-gray-500 mb-3 line-clamp-2">
           {task.description}
         </p>
       )}
+
+      {/* Placeholder for tags/avatar to match visual style without adding features */}
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center gap-2">
+          {/* <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">Task</span> */}
+        </div>
+        <div className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+             <i className="fas fa-user text-xs text-gray-400"></i>
+        </div>
+      </div>
     </div>
   );
 }

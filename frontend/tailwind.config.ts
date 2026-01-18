@@ -17,6 +17,9 @@ const config: Config = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -31,6 +34,12 @@ const config: Config = {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
+        cta: {
+          DEFAULT: "#F97316",
+          foreground: "#ffffff",
+        },
+        surface: "#F8FAFC",
+        text: "#1E293B",
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
