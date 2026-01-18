@@ -19,7 +19,6 @@ import {
   MeasuringStrategy,
   useSensor,
   useSensors,
-  defaultDropAnimationSideEffects,
   type DragEndEvent,
   type DragStartEvent,
   type DragOverEvent,
@@ -119,12 +118,12 @@ export function BoardView({ boardId }: BoardViewProps) {
   const lastOverId = useRef<UniqueIdentifier | null>(null);
   const recentlyMovedToNewContainer = useRef(false);
 
-  // 服务端数据变化时同步（非拖拽状态下）
+  // 服务端数据变化时同步（非拖拽且非提交中）
   useEffect(() => {
-    if (!activeId) {
+    if (!activeId && !moveTask.isPending) {
       setItems(serverItems);
     }
-  }, [serverItems, activeId]);
+  }, [serverItems, activeId, moveTask.isPending]);
 
   // 跨容器移动后重置标志
   useEffect(() => {
@@ -280,12 +279,16 @@ export function BoardView({ boardId }: BoardViewProps) {
         return;
       }
 
-      // 同容器内排序
+      // 同容器内排序（仅当 over 是有效任务时）
       const activeIndex = items[activeContainer].indexOf(active.id as string);
       const overIndex = items[overContainer].indexOf(overId as string);
 
       let finalItems = items;
-      if (activeIndex !== overIndex && activeContainer === overContainer) {
+      if (
+        activeContainer === overContainer &&
+        activeIndex !== overIndex &&
+        overIndex !== -1
+      ) {
         finalItems = {
           ...items,
           [overContainer]: arrayMove(items[overContainer], activeIndex, overIndex),
@@ -391,14 +394,7 @@ export function BoardView({ boardId }: BoardViewProps) {
         </div>
 
         {createPortal(
-          <DragOverlay
-            adjustScale={false}
-            dropAnimation={{
-              sideEffects: defaultDropAnimationSideEffects({
-                styles: { active: { opacity: "0.5" } },
-              }),
-            }}
-          >
+          <DragOverlay adjustScale={false} dropAnimation={null}>
             {activeTask && <DragOverlayCard task={activeTask} />}
           </DragOverlay>,
           document.body

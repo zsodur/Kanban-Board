@@ -13,7 +13,7 @@ interface DragOverlayCardProps {
 
 export function DragOverlayCard({ task }: DragOverlayCardProps) {
   return (
-    <div className="bg-white rounded-xl p-4 shadow-xl border border-primary/20 w-80 cursor-grabbing">
+    <div className="bg-white rounded-xl p-4 shadow-xl border border-primary/20 w-72 cursor-grabbing">
       <div className="flex items-start justify-between mb-3">
         <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
           #{task.id.slice(0, 8)}

@@ -165,13 +165,8 @@ export function useMoveTask(boardId: string) {
       }
     },
 
-    // 成功后用服务器数据替换，确保一致性
-    onSuccess: (serverTask) => {
-      queryClient.setQueryData<Task[]>(boardKeys.tasks(boardId), (old) => {
-        if (!old) return old;
-        return old.map((t) => (t.id === serverTask.id ? serverTask : t));
-      });
-    },
+    // 乐观更新已正确处理所有任务的 position，无需用服务端单个任务覆盖
+    // 避免破坏本地已计算好的顺序
 
     // 不再 invalidate，依赖 WebSocket 保持同步
     // onSettled: () => {

@@ -108,19 +108,8 @@ export function useWebSocket(boardId: string | null) {
         }
 
         case "task_moved": {
-          queryClient.setQueryData<Task[]>(tasksKey, (old) => {
-            if (!old) return old;
-            return old.map((task) =>
-              task.id === payload.id
-                ? {
-                    ...task,
-                    column_id: payload.to_column_id as string,
-                    position: payload.position as number,
-                    updated_at: new Date().toISOString(),
-                  }
-                : task
-            );
-          });
+          // 暂时禁用：本地乐观更新已处理，WebSocket 会干扰
+          // TODO: 多人协作时需要更精细的处理
           break;
         }
 
