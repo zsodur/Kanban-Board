@@ -25,9 +25,11 @@ export function useWebSocket(boardId: string | null) {
   const connect = useCallback(() => {
     if (!boardId) return;
 
-    // 构建 WebSocket URL
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/boards/${boardId}`;
+    // WebSocket 直连后端，绕过 Vite 代理
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsHost = window.location.hostname;
+    const wsPort = "8000"; // 后端端口
+    const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/api/v1/ws/boards/${boardId}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -108,8 +110,9 @@ export function useWebSocket(boardId: string | null) {
         }
 
         case "task_moved": {
-          // 暂时禁用：本地乐观更新已处理，WebSocket 会干扰
-          // TODO: 多人协作时需要更精细的处理
+          // 触发完整刷新获取所有任务的正确 position
+          // BoardView 的 isPending 检查会防止干扰进行中的拖拽
+          queryClient.invalidateQueries({ queryKey: tasksKey });
           break;
         }
 

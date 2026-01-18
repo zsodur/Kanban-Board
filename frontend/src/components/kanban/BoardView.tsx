@@ -119,11 +119,14 @@ export function BoardView({ boardId }: BoardViewProps) {
   const recentlyMovedToNewContainer = useRef(false);
 
   // 服务端数据变化时同步（非拖拽且非提交中）
+  // 用 JSON 序列化做深比较避免无限循环
+  const serverItemsKey = JSON.stringify(serverItems);
   useEffect(() => {
     if (!activeId && !moveTask.isPending) {
       setItems(serverItems);
     }
-  }, [serverItems, activeId, moveTask.isPending]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverItemsKey, activeId, moveTask.isPending]);
 
   // 跨容器移动后重置标志
   useEffect(() => {
