@@ -160,23 +160,23 @@
 
 ---
 
-## M4: WebSocket 实时同步
+## M4: WebSocket 实时同步 ✅
 
 ### 4.1 后端 WebSocket
-- [ ] `backend/app/services/realtime.py::ConnectionManager` - 连接管理器（connect, disconnect, broadcast）
-- [ ] `backend/app/services/realtime.py::broadcast_event` - 广播事件
-- [ ] `backend/app/schemas/events.py` - WebSocket 事件类型（TaskCreated, TaskUpdated, TaskMoved, TaskDeleted）
-- [ ] `backend/app/api/v1/endpoints/ws.py` - WebSocket /ws/boards/{board_id}
+- [x] `backend/app/services/realtime.py::ConnectionManager` - 连接管理器（connect, disconnect, broadcast）
+- [x] `backend/app/services/realtime.py::broadcast_event` - 广播事件
+- [x] `backend/app/schemas/events.py` - WebSocket 事件类型（TaskCreated, TaskUpdated, TaskMoved, TaskDeleted）
+- [x] `backend/app/api/v1/endpoints/ws.py` - WebSocket /ws/boards/{board_id}
 
 ### 4.2 后端事件触发
-- [ ] 修改 `tasks.py::create_task` - 创建后广播 task_created
-- [ ] 修改 `tasks.py::update_task` - 更新后广播 task_updated
-- [ ] 修改 `tasks.py::delete_task` - 删除后广播 task_deleted
-- [ ] 修改 `tasks.py::move_task` - 移动后广播 task_moved
+- [x] 修改 `tasks.py::create_task` - 创建后广播 task_created
+- [x] 修改 `tasks.py::update_task` - 更新后广播 task_updated
+- [x] 修改 `tasks.py::delete_task` - 删除后广播 task_deleted
+- [x] 修改 `tasks.py::move_task` - 移动后广播 task_moved
 
 ### 4.3 前端 WebSocket
-- [ ] `frontend/src/hooks/useWebSocket.ts` - WebSocket 连接 hook
-- [ ] 修改 `useBoard.ts` - 收到事件后更新 TanStack Query cache
+- [x] `frontend/src/hooks/useWebSocket.ts` - WebSocket 连接 hook
+- [x] 修改 `useBoard.ts` - 收到事件后更新 TanStack Query cache
 
 ### 4.4 测试: M4
 - [ ] `backend/tests/test_websocket.py::test_connect_to_board`
@@ -263,7 +263,7 @@
 | M1: 项目骨架 | 18 | ✅ |
 | M2: 数据模型 + CRUD | 29 | ✅ |
 | M3: 拖拽功能 | 17 | ✅ |
-| M4: WebSocket | 8 | ⬜ |
+| M4: WebSocket | 8 | ✅ |
 | M5: 体验完善 | 23 | ⬜ |
 | **总计** | **95** | ⬜ |
 
