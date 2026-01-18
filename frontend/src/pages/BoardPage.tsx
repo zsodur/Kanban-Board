@@ -1,77 +1,76 @@
 /**
- * [INPUT]: 无外部依赖
+ * [INPUT]: 依赖 react, components/layout, components/kanban, api/boards
  * [OUTPUT]: 对外提供 BoardPage 页面组件
  * [POS]: pages 模块的看板页面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { useEffect, useState } from "react";
+import { AppShell } from "../components/layout/AppShell";
+import { BoardView } from "../components/kanban/BoardView";
+import { boardsApi } from "../api/boards";
+import type { Board } from "../types/kanban";
+
 function BoardPage() {
+  const [board, setBoard] = useState<Board | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadBoard = async () => {
+      try {
+        const boards = await boardsApi.list();
+        if (boards.length > 0) {
+          setBoard(boards[0]);
+        } else {
+          // 创建默认看板
+          const newBoard = await boardsApi.create({ title: "我的看板" });
+          setBoard(newBoard);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "加载失败");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBoard();
+  }, []);
+
+  if (loading) {
+    return (
+      <AppShell title="Kanban Board">
+        <div className="flex items-center justify-center h-full text-gray-500">
+          加载中...
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell title="Kanban Board">
+        <div className="flex items-center justify-center h-full text-red-500">
+          {error}
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!board) {
+    return (
+      <AppShell title="Kanban Board">
+        <div className="flex items-center justify-center h-full text-gray-500">
+          无看板数据
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* ------------------------------------------------------------------ */}
-      {/*  顶部导航                                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">Kanban Board</h1>
-          <button className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors">
-            + 新建任务
-          </button>
-        </div>
-      </header>
-
-      {/* ------------------------------------------------------------------ */}
-      {/*  看板主体                                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <main className="p-6">
-        <div className="flex gap-6 overflow-x-auto pb-4">
-          {/* Todo 列 */}
-          <div className="flex-shrink-0 w-80 bg-slate-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-slate-700">Todo</h2>
-              <span className="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                0
-              </span>
-            </div>
-            <div className="space-y-3">
-              <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 text-slate-500 text-center">
-                暂无任务
-              </div>
-            </div>
-          </div>
-
-          {/* Doing 列 */}
-          <div className="flex-shrink-0 w-80 bg-slate-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-slate-700">Doing</h2>
-              <span className="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                0
-              </span>
-            </div>
-            <div className="space-y-3">
-              <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 text-slate-500 text-center">
-                暂无任务
-              </div>
-            </div>
-          </div>
-
-          {/* Done 列 */}
-          <div className="flex-shrink-0 w-80 bg-slate-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-slate-700">Done</h2>
-              <span className="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                0
-              </span>
-            </div>
-            <div className="space-y-3">
-              <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 text-slate-500 text-center">
-                暂无任务
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <AppShell title={board.title}>
+      <BoardView boardId={board.id} />
+    </AppShell>
   );
 }
 
