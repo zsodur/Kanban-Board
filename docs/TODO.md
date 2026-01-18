@@ -50,67 +50,67 @@
 
 ---
 
-## M2: 数据模型 + CRUD API
+## M2: 数据模型 + CRUD API ✅
 
 ### 2.1 ORM 模型
-- [ ] `backend/app/models/user.py` - User 模型（id, email, hashed_password, display_name, created_at, updated_at）
-- [ ] `backend/app/models/board.py` - Board 模型（id, owner_id, title, created_at, updated_at）
-- [ ] `backend/app/models/column.py` - Column 模型（id, board_id, title, order_index, created_at, updated_at）
-- [ ] `backend/app/models/task.py` - Task 模型（id, board_id, column_id, title, description, position, created_at, updated_at）
-- [ ] `backend/app/models/__init__.py` - 统一导出
+- [x] `backend/app/models/user.py` - User 模型（id, email, hashed_password, display_name, created_at, updated_at）
+- [x] `backend/app/models/board.py` - Board 模型（id, owner_id, title, created_at, updated_at）
+- [x] `backend/app/models/column.py` - Column 模型（id, board_id, title, order_index, created_at, updated_at）
+- [x] `backend/app/models/task.py` - Task 模型（id, board_id, column_id, title, description, position, created_at, updated_at）
+- [x] `backend/app/models/__init__.py` - 统一导出
 
 ### 2.2 Pydantic Schemas
-- [ ] `backend/app/schemas/user.py` - UserCreate, UserRead, UserUpdate
-- [ ] `backend/app/schemas/board.py` - BoardCreate, BoardRead, BoardUpdate
-- [ ] `backend/app/schemas/column.py` - ColumnCreate, ColumnRead, ColumnUpdate
-- [ ] `backend/app/schemas/task.py` - TaskCreate, TaskRead, TaskUpdate, TaskMove
-- [ ] `backend/app/schemas/__init__.py` - 统一导出
+- [x] `backend/app/schemas/user.py` - UserCreate, UserRead, UserUpdate
+- [x] `backend/app/schemas/board.py` - BoardCreate, BoardRead, BoardUpdate
+- [x] `backend/app/schemas/column.py` - ColumnCreate, ColumnRead, ColumnUpdate
+- [x] `backend/app/schemas/task.py` - TaskCreate, TaskRead, TaskUpdate, TaskMove
+- [x] `backend/app/schemas/__init__.py` - 统一导出
 
 ### 2.3 CRUD 操作
-- [ ] `backend/app/crud/users.py` - create_user, get_user_by_email, get_user_by_id
-- [ ] `backend/app/crud/boards.py` - create_board, get_boards_by_owner, get_board, update_board, delete_board
-- [ ] `backend/app/crud/columns.py` - create_column, get_columns_by_board, get_column, update_column, delete_column
-- [ ] `backend/app/crud/tasks.py` - create_task, get_tasks_by_board, get_tasks_by_column, get_task, update_task, delete_task
+- [x] `backend/app/crud/users.py` - create_user, get_user_by_email, get_user_by_id
+- [x] `backend/app/crud/boards.py` - create_board, get_boards_by_owner, get_board, update_board, delete_board
+- [x] `backend/app/crud/columns.py` - create_column, get_columns_by_board, get_column, update_column, delete_column
+- [x] `backend/app/crud/tasks.py` - create_task, get_tasks_by_board, get_tasks_by_column, get_task, update_task, delete_task
 
 ### 2.4 数据库初始化
-- [ ] `backend/app/db/init_db.py` - init_db() 创建表 + seed_default_board() 种子数据
+- [x] `backend/app/db/init_db.py` - init_db() 创建表 + seed_default_board() 种子数据
 - [x] `backend/alembic.ini` - Alembic 配置
 - [x] `backend/alembic/env.py` - 迁移环境
 - [x] `backend/alembic/script.py.mako` - 迁移模板
 - [x] `backend/alembic/versions/0001_init.py` - 初始迁移
 
 ### 2.5 API 端点: Boards
-- [ ] `backend/app/api/v1/endpoints/boards.py::list_boards` - GET /boards
-- [ ] `backend/app/api/v1/endpoints/boards.py::create_board` - POST /boards
-- [ ] `backend/app/api/v1/endpoints/boards.py::get_board` - GET /boards/{board_id}
-- [ ] `backend/app/api/v1/endpoints/boards.py::update_board` - PATCH /boards/{board_id}
-- [ ] `backend/app/api/v1/endpoints/boards.py::delete_board` - DELETE /boards/{board_id}
+- [x] `backend/app/api/v1/endpoints/boards.py::list_boards` - GET /boards
+- [x] `backend/app/api/v1/endpoints/boards.py::create_board` - POST /boards
+- [x] `backend/app/api/v1/endpoints/boards.py::get_board` - GET /boards/{board_id}
+- [x] `backend/app/api/v1/endpoints/boards.py::update_board` - PATCH /boards/{board_id}
+- [x] `backend/app/api/v1/endpoints/boards.py::delete_board` - DELETE /boards/{board_id}
 
 ### 2.6 API 端点: Columns
-- [ ] `backend/app/api/v1/endpoints/columns.py::list_columns` - GET /boards/{board_id}/columns
-- [ ] `backend/app/api/v1/endpoints/columns.py::create_column` - POST /boards/{board_id}/columns
-- [ ] `backend/app/api/v1/endpoints/columns.py::update_column` - PATCH /columns/{column_id}
-- [ ] `backend/app/api/v1/endpoints/columns.py::delete_column` - DELETE /columns/{column_id}
+- [x] `backend/app/api/v1/endpoints/columns.py::list_columns` - GET /boards/{board_id}/columns
+- [x] `backend/app/api/v1/endpoints/columns.py::create_column` - POST /boards/{board_id}/columns
+- [x] `backend/app/api/v1/endpoints/columns.py::update_column` - PATCH /columns/{column_id}
+- [x] `backend/app/api/v1/endpoints/columns.py::delete_column` - DELETE /columns/{column_id}
 
 ### 2.7 API 端点: Tasks
-- [ ] `backend/app/api/v1/endpoints/tasks.py::list_tasks` - GET /boards/{board_id}/tasks
-- [ ] `backend/app/api/v1/endpoints/tasks.py::create_task` - POST /boards/{board_id}/tasks
-- [ ] `backend/app/api/v1/endpoints/tasks.py::get_task` - GET /tasks/{task_id}
-- [ ] `backend/app/api/v1/endpoints/tasks.py::update_task` - PATCH /tasks/{task_id}
-- [ ] `backend/app/api/v1/endpoints/tasks.py::delete_task` - DELETE /tasks/{task_id}
+- [x] `backend/app/api/v1/endpoints/tasks.py::list_tasks` - GET /boards/{board_id}/tasks
+- [x] `backend/app/api/v1/endpoints/tasks.py::create_task` - POST /boards/{board_id}/tasks
+- [x] `backend/app/api/v1/endpoints/tasks.py::get_task` - GET /tasks/{task_id}
+- [x] `backend/app/api/v1/endpoints/tasks.py::update_task` - PATCH /tasks/{task_id}
+- [x] `backend/app/api/v1/endpoints/tasks.py::delete_task` - DELETE /tasks/{task_id}
 
 ### 2.8 测试: M2
-- [ ] `backend/tests/test_boards.py::test_create_board`
-- [ ] `backend/tests/test_boards.py::test_list_boards`
-- [ ] `backend/tests/test_boards.py::test_get_board`
-- [ ] `backend/tests/test_boards.py::test_update_board`
-- [ ] `backend/tests/test_boards.py::test_delete_board`
-- [ ] `backend/tests/test_columns.py::test_list_columns`
-- [ ] `backend/tests/test_columns.py::test_create_column`
-- [ ] `backend/tests/test_tasks.py::test_create_task`
-- [ ] `backend/tests/test_tasks.py::test_list_tasks`
-- [ ] `backend/tests/test_tasks.py::test_update_task`
-- [ ] `backend/tests/test_tasks.py::test_delete_task`
+- [x] `backend/tests/test_boards.py::test_create_board`
+- [x] `backend/tests/test_boards.py::test_list_boards`
+- [x] `backend/tests/test_boards.py::test_get_board`
+- [x] `backend/tests/test_boards.py::test_update_board`
+- [x] `backend/tests/test_boards.py::test_delete_board`
+- [x] `backend/tests/test_columns.py::test_list_columns`
+- [x] `backend/tests/test_columns.py::test_create_column`
+- [x] `backend/tests/test_tasks.py::test_create_task`
+- [x] `backend/tests/test_tasks.py::test_list_tasks`
+- [x] `backend/tests/test_tasks.py::test_update_task`
+- [x] `backend/tests/test_tasks.py::test_delete_task`
 
 ---
 
@@ -261,7 +261,7 @@
 | 模块 | 文件数 | 状态 |
 |------|--------|------|
 | M1: 项目骨架 | 18 | ✅ |
-| M2: 数据模型 + CRUD | 29 | ⬜ |
+| M2: 数据模型 + CRUD | 29 | ✅ |
 | M3: 拖拽功能 | 17 | ⬜ |
 | M4: WebSocket | 8 | ⬜ |
 | M5: 体验完善 | 23 | ⬜ |

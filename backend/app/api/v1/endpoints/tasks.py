@@ -2,8 +2,8 @@
 #  Tasks API Endpoints
 # ==============================================================================
 """
-[INPUT]: 依赖 app.crud, app.schemas, app.api.deps
-[OUTPUT]: 对外提供 tasks CRUD API 路由
+[INPUT]: 依赖 app.crud, app.schemas, app.api.deps, app.services
+[OUTPUT]: 对外提供 tasks CRUD + move API 路由
 [POS]: api/v1/endpoints 的任务端点
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
@@ -21,7 +21,8 @@ from app.crud import (
     get_tasks_by_board,
     update_task,
 )
-from app.schemas import TaskCreate, TaskRead, TaskUpdate
+from app.schemas import TaskCreate, TaskMove, TaskRead, TaskUpdate
+from app.services import move_task
 
 router = APIRouter(tags=["tasks"])
 
@@ -99,3 +100,20 @@ async def delete_task_endpoint(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     await delete_task(db, task)
+
+
+# -----------------------------------------------------------------------------
+#  Move Endpoint (拖拽核心)
+# -----------------------------------------------------------------------------
+@router.patch("/tasks/{task_id}/move", response_model=TaskRead)
+async def move_task_endpoint(
+    task_id: UUID,
+    move_in: TaskMove,
+    db: AsyncSession = Depends(get_db),
+) -> TaskRead:
+    """移动任务到目标列的指定位置"""
+    task = await get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = await move_task(db, task, move_in.column_id, move_in.position)
+    return TaskRead.model_validate(task)
