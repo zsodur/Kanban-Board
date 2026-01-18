@@ -91,7 +91,7 @@ export function useMoveTask(boardId: string) {
     mutationFn: ({ taskId, data }: { taskId: string; data: MoveTaskInput }) =>
       tasksApi.move(taskId, data),
 
-    // 乐观更新
+    // 乐观更新 - 完整重排 position
     onMutate: async ({ taskId, data }) => {
       await queryClient.cancelQueries({ queryKey: boardKeys.tasks(boardId) });
 
@@ -100,11 +100,56 @@ export function useMoveTask(boardId: string) {
       );
 
       if (previousTasks) {
-        const updatedTasks = previousTasks.map((task) =>
-          task.id === taskId
-            ? { ...task, column_id: data.column_id, position: data.position }
-            : task
+        const task = previousTasks.find((t) => t.id === taskId);
+        if (!task) return { previousTasks };
+
+        const fromColumnId = task.column_id;
+        const toColumnId = data.column_id;
+        const toPosition = data.position;
+
+        // 创建新的任务数组
+        let updatedTasks = previousTasks.map((t) => ({ ...t }));
+
+        // 从原列移除
+        const fromColumnTasks = updatedTasks
+          .filter((t) => t.column_id === fromColumnId && t.id !== taskId)
+          .sort((a, b) => a.position - b.position);
+
+        // 重排原列 position
+        fromColumnTasks.forEach((t, idx) => {
+          t.position = idx;
+        });
+
+        // 获取目标列任务（不含被移动的任务）
+        const toColumnTasks = updatedTasks
+          .filter((t) => t.column_id === toColumnId && t.id !== taskId)
+          .sort((a, b) => a.position - b.position);
+
+        // 插入到目标位置
+        const movedTask = updatedTasks.find((t) => t.id === taskId)!;
+        movedTask.column_id = toColumnId;
+        toColumnTasks.splice(toPosition, 0, movedTask);
+
+        // 重排目标列 position
+        toColumnTasks.forEach((t, idx) => {
+          t.position = idx;
+        });
+
+        // 合并所有任务
+        const otherTasks = updatedTasks.filter(
+          (t) => t.column_id !== fromColumnId && t.column_id !== toColumnId
         );
+
+        updatedTasks = [...otherTasks, ...fromColumnTasks, ...toColumnTasks];
+
+        // 如果同列，只保留目标列
+        if (fromColumnId === toColumnId) {
+          updatedTasks = [
+            ...updatedTasks.filter((t) => t.column_id !== toColumnId),
+            ...toColumnTasks,
+          ];
+        }
+
         queryClient.setQueryData(boardKeys.tasks(boardId), updatedTasks);
       }
 
@@ -120,8 +165,17 @@ export function useMoveTask(boardId: string) {
       }
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: boardKeys.tasks(boardId) });
+    // 成功后用服务器数据替换，确保一致性
+    onSuccess: (serverTask) => {
+      queryClient.setQueryData<Task[]>(boardKeys.tasks(boardId), (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === serverTask.id ? serverTask : t));
+      });
     },
+
+    // 不再 invalidate，依赖 WebSocket 保持同步
+    // onSettled: () => {
+    //   queryClient.invalidateQueries({ queryKey: boardKeys.tasks(boardId) });
+    // },
   });
 }
